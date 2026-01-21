@@ -1,5 +1,3 @@
-name,college
-Bill Gates,Harvard University
-Sheryl Sandberg,Harvard Business School
-Satya Nadella,University of Chicago
-Gavin Miyasato,Harvard University School of Public Health
+roll_number,name,college
+001,Bill Gates,Harvard University
+002,Sheryl Sandberg,Harvard Business School

@@ -190,12 +190,13 @@ async def process_csv(
         # Process rows
         for idx in range(start_index, len(rows)):
             row = rows[idx]
+            roll_number = row.get('roll_number', '').strip()
             name = row.get('name', '').strip()
             college = row.get('college', '').strip()
             
             if not name or not college:
                 logger.warning(f"[{idx + 1}/{len(rows)}] ⚠️  Skipping - missing name or college")
-                error_rows.append({'name': name, 'college': college, 'error': 'Missing data'})
+                error_rows.append({'roll_number': roll_number, 'name': name, 'college': college, 'error': 'Missing data'})
                 continue
             
             logger.info(f"[{idx + 1}/{len(rows)}] 🔍 {name} | {college}")
@@ -232,6 +233,7 @@ async def process_csv(
                 logger.info(f"     ✓ {profile_url}")
                 logger.info(f"     📍 {location}")
                 results.append({
+                    'roll_number': roll_number,
                     'name': name,
                     'college': college,
                     'profile_url': profile_url,
@@ -239,7 +241,7 @@ async def process_csv(
                 })
             else:
                 logger.info(f"     ❌ {location}")
-                error_rows.append({'name': name, 'college': college, 'error': location})
+                error_rows.append({'roll_number': roll_number, 'name': name, 'college': college, 'error': location})
             
             # Flush results every batch_size rows
             if len(results) >= batch_size:
@@ -257,7 +259,7 @@ async def process_csv(
         # Save error log if any
         if error_rows:
             error_file = f"{output_file}.errors.csv"
-            _write_csv(error_file, error_rows, ['name', 'college', 'error'])
+            _write_csv(error_file, error_rows, ['roll_number', 'name', 'college', 'error'])
             logger.info(f"❌ Errors saved to: {error_file}")
     
     # Cleanup checkpoint on success
@@ -277,7 +279,7 @@ def _flush_csv(output_file: str, results: list, current_idx: int):
     try:
         file_exists = Path(output_file).exists()
         with open(output_file, 'a', newline='', encoding='utf-8') as f:
-            fieldnames = ['name', 'college', 'profile_url', 'location']
+            fieldnames = ['roll_number', 'name', 'college', 'profile_url', 'location']
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             if not file_exists:
                 writer.writeheader()

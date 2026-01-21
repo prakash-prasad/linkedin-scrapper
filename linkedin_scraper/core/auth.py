@@ -247,9 +247,74 @@ async def is_logged_in(page: Page) -> bool:
         True if logged in, False otherwise
     """
     try:
-        # Check for global nav which only appears when logged in
-        count = await page.locator('.global-nav__primary-link, [data-control-name="nav.settings"]').count()
-        return count > 0
+        # Multiple checks for logged-in state to handle LinkedIn's changing page structure
+        
+        # Check 1: Look for the global nav bar (appears when logged in)
+        # Try multiple selectors as LinkedIn frequently updates their CSS classes
+        nav_selectors = [
+            '.global-nav',  # Main nav container
+            '[data-cy="nav_bar"]',  # Data-cy attribute
+            'nav[class*="global"]',  # Any nav with 'global' in class
+            '[class*="global-nav"]',  # Any element with 'global-nav' in class
+        ]
+        
+        for selector in nav_selectors:
+            try:
+                count = await page.locator(selector).count()
+                if count > 0:
+                    return True
+            except Exception:
+                continue
+        
+        # Check 2: Look for profile menu/settings button (only visible when logged in)
+        profile_selectors = [
+            '[data-control-name="nav.settings"]',
+            '[aria-label*="Profile"]',
+            '[aria-label*="profile"]',
+            '[data-test-id="profile-menu"]',
+            'button[aria-label*="Me"]',
+        ]
+        
+        for selector in profile_selectors:
+            try:
+                count = await page.locator(selector).count()
+                if count > 0:
+                    return True
+            except Exception:
+                continue
+        
+        # Check 3: Look for the main feed container
+        feed_selectors = [
+            '[class*="feed"]',
+            '[role="main"]',
+            'main',
+        ]
+        
+        for selector in feed_selectors:
+            try:
+                count = await page.locator(selector).count()
+                if count > 0:
+                    # Additional verification: check URL contains /feed or similar
+                    if 'feed' in page.url or 'home' in page.url:
+                        return True
+            except Exception:
+                continue
+        
+        # Check 4: Verify we're NOT on a login page
+        if 'login' not in page.url and 'authwall' not in page.url and 'checkpoint' not in page.url:
+            # We're not on a login page, check if page has loaded with content
+            try:
+                # Try to find any content that indicates we're on a logged-in page
+                body = await page.locator('body').count()
+                if body > 0:
+                    # Check page title or other indicators
+                    title = await page.title()
+                    if 'linkedin' in title.lower() and 'login' not in title.lower():
+                        return True
+            except Exception:
+                pass
+        
+        return False
     except Exception:
         return False
 

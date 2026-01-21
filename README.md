@@ -57,11 +57,12 @@ pip3 install -e .
 then run
 ```
 python3 samples/create_session.py
-python3 samples/scrape_company.py
+python samples/scrape_company.py
 python3 samples/scrape_person.py
 ```
 and you will see the scraping in action.
-
+python samples/create_session.py
+python samples/scrape_person.py
 ---
 
 ## Features

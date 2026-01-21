@@ -26,15 +26,15 @@ class PersonScraper(BaseScraper):
         """
         super().__init__(page, callback)
 
-    async def scrape(self, linkedin_url: str) -> Person:
+    async def scrape(self, linkedin_url: str) -> Optional[str]:
         """
-        Scrape a LinkedIn person profile.
+        Scrape a LinkedIn person profile location.
 
         Args:
             linkedin_url: LinkedIn profile URL
 
         Returns:
-            Person object with all scraped data
+            Location string
 
         Raises:
             AuthenticationError: If not logged in
@@ -45,7 +45,7 @@ class PersonScraper(BaseScraper):
         try:
             # Navigate to profile first (this loads the page with our session)
             await self.navigate_and_wait(linkedin_url)
-            await self.callback.on_progress("Navigated to profile", 10)
+            await self.callback.on_progress("Navigated to profile", 20)
 
             # Now check if logged in
             await self.ensure_logged_in()
@@ -54,72 +54,29 @@ class PersonScraper(BaseScraper):
             await self.page.wait_for_selector("main", timeout=10000)
             await self.wait_and_focus(1)
 
-            # Get name and location
-            name, location = await self._get_name_and_location()
-            await self.callback.on_progress(f"Got name: {name}", 20)
-
-            # Check open to work
-            open_to_work = await self._check_open_to_work()
-
-            # Get about
-            about = await self._get_about()
-            await self.callback.on_progress("Got about section", 30)
-
-            # Scroll to load content
-            await self.scroll_page_to_half()
-            await self.scroll_page_to_bottom(pause_time=0.5, max_scrolls=3)
-
-            # Get experiences
-            experiences = await self._get_experiences(linkedin_url)
-            await self.callback.on_progress(f"Got {len(experiences)} experiences", 60)
-
-            educations = await self._get_educations(linkedin_url)
-            await self.callback.on_progress(f"Got {len(educations)} educations", 50)
-
-            interests = await self._get_interests(linkedin_url)
-            await self.callback.on_progress(f"Got {len(interests)} interests", 65)
-
-            accomplishments = await self._get_accomplishments(linkedin_url)
-            await self.callback.on_progress(
-                f"Got {len(accomplishments)} accomplishments", 85
-            )
-
-            contacts = await self._get_contacts(linkedin_url)
-            await self.callback.on_progress(f"Got {len(contacts)} contacts", 95)
-
-            person = Person(
-                linkedin_url=linkedin_url,
-                name=name,
-                location=location,
-                about=about,
-                open_to_work=open_to_work,
-                experiences=experiences,
-                educations=educations,
-                interests=interests,
-                accomplishments=accomplishments,
-                contacts=contacts,
-            )
+            # Get location
+            location = await self._get_location()
+            await self.callback.on_progress(f"Got location: {location}", 80)
 
             await self.callback.on_progress("Scraping complete", 100)
-            await self.callback.on_complete("person", person)
+            await self.callback.on_complete("person", location)
 
-            return person
+            return location
 
         except Exception as e:
             await self.callback.on_error(e)
-            raise ScrapingError(f"Failed to scrape person profile: {e}")
+            raise ScrapingError(f"Failed to scrape person location: {e}")
 
-    async def _get_name_and_location(self) -> tuple[str, Optional[str]]:
-        """Extract name and location from profile."""
+    async def _get_location(self) -> Optional[str]:
+        """Extract location from profile."""
         try:
-            name = await self.safe_extract_text("h1", default="Unknown")
             location = await self.safe_extract_text(
                 ".text-body-small.inline.t-black--light.break-words", default=""
             )
-            return name, location if location else None
+            return location if location else None
         except Exception as e:
-            logger.warning(f"Error getting name/location: {e}")
-            return "Unknown", None
+            logger.warning(f"Error getting location: {e}")
+            return None
 
     async def _check_open_to_work(self) -> bool:
         """Check if profile has open to work badge."""

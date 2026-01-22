@@ -11,21 +11,21 @@ from linkedin_scraper.core.browser import BrowserManager
 from linkedin_scraper.scrapers.person import PersonScraper
 
 
-async def find_person_location_on_page(page: Page, name: str, college: str) -> tuple[str, str]:
+async def _search_profile_on_linkedin(page: Page, search_name: str, college: str) -> tuple[str, str]:
     """
-    Find a person's location on LinkedIn using an existing page/session.
+    Search for a profile on LinkedIn and scrape location.
     
     Args:
         page: Playwright page object (must be logged in)
-        name: Person's full name
+        search_name: Name to search for
         college: College/University name
         
     Returns:
-        Tuple of (profile_url, location)
+        Tuple of (profile_url, location) or (None, error_msg)
     """
     try:
         # Navigate to LinkedIn search
-        search_query = f"{name} {college}"
+        search_query = f"{search_name} {college}"
         search_url = f"https://www.linkedin.com/search/results/people/?keywords={search_query.replace(' ', '%20')}"
         
         await page.goto(search_url)
@@ -56,6 +56,84 @@ async def find_person_location_on_page(page: Page, name: str, college: str) -> t
         location = await scraper.scrape(profile_url)
         
         return profile_url, location if location else "Location not available"
+    
+    except Exception as e:
+        return None, f"Error: {str(e)}"
+
+
+def _generate_name_combinations(full_name: str) -> list[str]:
+    """
+    Generate name combinations to try if the full name doesn't work.
+    
+    For a 3-word name (first middle last), generate alternatives by excluding middle name.
+    
+    Args:
+        full_name: Person's full name
+        
+    Returns:
+        List of name combinations to try in order
+    """
+    words = full_name.strip().split()
+    
+    # Start with full name
+    combinations = [full_name]
+    
+    # If 3 words, try combinations excluding middle name
+    if len(words) == 3:
+        w1, w2, w3 = words
+        # Try first + last (w1 w3)
+        combinations.append(f"{w1} {w3}")
+        # Try first + middle (w1 w2)
+        combinations.append(f"{w1} {w2}")
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_combos = []
+    for combo in combinations:
+        if combo not in seen:
+            seen.add(combo)
+            unique_combos.append(combo)
+    
+    return unique_combos
+
+
+async def find_person_location_on_page(page: Page, name: str, college: str) -> tuple[str, str]:
+    """
+    Find a person's location on LinkedIn using an existing page/session.
+    
+    Implements smart fallback: if full name search fails and name has 3 words,
+    tries alternative combinations (first+last, first+middle).
+    
+    Args:
+        page: Playwright page object (must be logged in)
+        name: Person's full name
+        college: College/University name
+        
+    Returns:
+        Tuple of (profile_url, location) or (None, error_msg)
+    """
+    try:
+        # Generate name combinations to try
+        name_combinations = _generate_name_combinations(name)
+        
+        last_error = None
+        
+        for attempt, search_name in enumerate(name_combinations, 1):
+            profile_url, result = await _search_profile_on_linkedin(page, search_name, college)
+            
+            if profile_url:
+                # Success!
+                if attempt > 1:
+                    # Log if we had to use alternative name combination
+                    import logging
+                    logging.debug(f"Found profile using alternative name '{search_name}' (attempted {attempt}/{len(name_combinations)})")
+                return profile_url, result
+            else:
+                # Track the error
+                last_error = result
+        
+        # All combinations tried, none worked
+        return None, f"No profile found. Tried combinations: {name_combinations}"
     
     except Exception as e:
         return None, f"Error: {str(e)}"

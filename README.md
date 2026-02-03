@@ -63,6 +63,9 @@ python3 samples/scrape_person.py
 and you will see the scraping in action.
 python samples/create_session.py
 python samples/scrape_person.py
+
+for batch, run
+python samples/batch_find_locations_v2.py
 ---
 
 ## Features
